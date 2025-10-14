@@ -64,6 +64,15 @@ mainCanvas.addEventListener("mouseleave", () => {
   ctx.beginPath(); // Reset the path so lines don't connect
 });
 
+document.addEventListener("keydown", (event) => {
+  for (const tool of Object.values(drawingTools)) {
+    if (event.code === tool.keyboardShortcut) {
+      tool.action();
+    }
+  }
+});
+
+//#region Utilities
 function screenToCanvasCoords(x: number, y: number) {
   const rect = mainCanvas.getBoundingClientRect();
   return {
@@ -71,3 +80,4 @@ function screenToCanvasCoords(x: number, y: number) {
     y: (y - rect.top) * (mainCanvas.height / rect.height) / dpr,
   };
 }
+//#endregion
