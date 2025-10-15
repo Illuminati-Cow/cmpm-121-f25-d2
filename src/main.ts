@@ -1,3 +1,4 @@
+const eventBus = new EventTarget();
 const mainCanvas = document.getElementById("main-canvas") as HTMLCanvasElement;
 const ctx = mainCanvas.getContext("2d")!;
 let isDrawing = false;
@@ -8,6 +9,9 @@ ctx.scale(dpr, dpr);
 
 const leftToolbar = document.getElementById("left-toolbar") as HTMLDivElement;
 // const _rightToolbar = document.getElementById("right-toolbar") as HTMLDivElement;
+const points: Array<{ x: number; y: number }> = [];
+
+eventBus.addEventListener("canvas-changed", draw);
 
 const drawingTools = {
   clear: {
@@ -16,7 +20,8 @@ const drawingTools = {
     tooltip: "Clear the entire canvas",
     keyboardShortcut: "KeyC",
     action: () => {
-      ctx.clearRect(0, 0, mainCanvas.width, mainCanvas.height);
+      points.splice(0);
+      eventBus.dispatchEvent(new Event("canvas-changed"));
     },
   },
 };
@@ -44,13 +49,9 @@ mainCanvas.addEventListener("mouseup", (event) => {
 
 mainCanvas.addEventListener("mousemove", (event) => {
   if (!isDrawing) return;
-
-  const { x, y } = screenToCanvasCoords(event.clientX, event.clientY);
-
-  ctx.fillStyle = "black";
-  ctx.beginPath();
-  ctx.arc(x, y, 5, 0, Math.PI * 2);
-  ctx.fill();
+  eventBus.dispatchEvent(new Event("canvas-changed"));
+  const point = screenToCanvasCoords(event.clientX, event.clientY);
+  points.push(point);
 });
 
 mainCanvas.addEventListener("mouseenter", (event) => {
@@ -71,6 +72,16 @@ document.addEventListener("keydown", (event) => {
     }
   }
 });
+
+function draw() {
+  ctx.clearRect(0, 0, mainCanvas.width, mainCanvas.height);
+  for (const { x, y } of points) {
+    ctx.fillStyle = "black";
+    ctx.beginPath();
+    ctx.arc(x, y, 5, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
 
 //#region Utilities
 function screenToCanvasCoords(x: number, y: number) {
