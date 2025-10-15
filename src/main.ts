@@ -1,3 +1,11 @@
+interface Point {
+  x: number;
+  y: number;
+}
+interface Line {
+  points: Array<Point>;
+}
+
 const eventBus = new EventTarget();
 const mainCanvas = document.getElementById("main-canvas") as HTMLCanvasElement;
 const ctx = mainCanvas.getContext("2d")!;
@@ -9,7 +17,7 @@ ctx.scale(dpr, dpr);
 
 const leftToolbar = document.getElementById("left-toolbar") as HTMLDivElement;
 // const _rightToolbar = document.getElementById("right-toolbar") as HTMLDivElement;
-const points: Array<{ x: number; y: number }> = [];
+const lines: Array<Line> = [];
 
 eventBus.addEventListener("canvas-changed", draw);
 
@@ -20,7 +28,7 @@ const drawingTools = {
     tooltip: "Clear the entire canvas",
     keyboardShortcut: "KeyC",
     action: () => {
-      points.splice(0);
+      lines.splice(0);
       eventBus.dispatchEvent(new Event("canvas-changed"));
     },
   },
@@ -38,20 +46,19 @@ for (const [id, tool] of Object.entries(drawingTools)) {
 mainCanvas.addEventListener("mousedown", (event) => {
   if (event.button !== 0) return;
   isDrawing = true;
-  console.log("Mouse down at", event.clientX, event.clientY);
+  lines.push({ points: [] });
 });
 
 mainCanvas.addEventListener("mouseup", (event) => {
   if (event.button !== 0) return;
   isDrawing = false;
-  ctx.beginPath(); // Reset the path so lines don't connect
 });
 
 mainCanvas.addEventListener("mousemove", (event) => {
   if (!isDrawing) return;
-  eventBus.dispatchEvent(new Event("canvas-changed"));
   const point = screenToCanvasCoords(event.clientX, event.clientY);
-  points.push(point);
+  lines[lines.length - 1]!.points.push(point);
+  eventBus.dispatchEvent(new Event("canvas-changed"));
 });
 
 mainCanvas.addEventListener("mouseenter", (event) => {
@@ -62,7 +69,6 @@ mainCanvas.addEventListener("mouseenter", (event) => {
 
 mainCanvas.addEventListener("mouseleave", () => {
   isDrawing = false;
-  ctx.beginPath(); // Reset the path so lines don't connect
 });
 
 document.addEventListener("keydown", (event) => {
@@ -75,11 +81,18 @@ document.addEventListener("keydown", (event) => {
 
 function draw() {
   ctx.clearRect(0, 0, mainCanvas.width, mainCanvas.height);
-  for (const { x, y } of points) {
-    ctx.fillStyle = "black";
+  ctx.strokeStyle = "black";
+  ctx.lineWidth = 5;
+  for (const line of lines) {
     ctx.beginPath();
-    ctx.arc(x, y, 5, 0, Math.PI * 2);
-    ctx.fill();
+    if (line.points.length === 0) {
+      continue;
+    }
+    ctx.moveTo(line.points[0]!.x, line.points[0]!.y);
+    for (const point of line.points) {
+      ctx.lineTo(point.x, point.y);
+    }
+    ctx.stroke();
   }
 }
 
