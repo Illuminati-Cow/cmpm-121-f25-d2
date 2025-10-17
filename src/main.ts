@@ -18,6 +18,7 @@ ctx.scale(dpr, dpr);
 const leftToolbar = document.getElementById("left-toolbar") as HTMLDivElement;
 // const _rightToolbar = document.getElementById("right-toolbar") as HTMLDivElement;
 const lines: Array<Line> = [];
+const undoneLines: Array<Line> = [];
 
 eventBus.addEventListener("canvas-changed", draw);
 
@@ -31,6 +32,20 @@ const drawingTools = {
       lines.splice(0);
       eventBus.dispatchEvent(new Event("canvas-changed"));
     },
+  },
+  undo: {
+    name: "Undo",
+    icon: "↩️",
+    tooltip: "Undo the last action",
+    keyboardShortcut: "KeyZ",
+    action: undo,
+  },
+  redo: {
+    name: "Redo",
+    icon: "↪️",
+    tooltip: "Redo the last undone action",
+    keyboardShortcut: "KeyY",
+    action: redo,
   },
 };
 
@@ -94,6 +109,18 @@ function draw() {
     }
     ctx.stroke();
   }
+}
+
+function undo() {
+  if (lines.length === 0) return;
+  undoneLines.push(lines.pop()!);
+  eventBus.dispatchEvent(new Event("canvas-changed"));
+}
+
+function redo() {
+  if (undoneLines.length === 0) return;
+  lines.push(undoneLines.pop()!);
+  eventBus.dispatchEvent(new Event("canvas-changed"));
 }
 
 //#region Utilities
