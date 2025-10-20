@@ -2,8 +2,24 @@ interface Point {
   x: number;
   y: number;
 }
+
 interface Line {
   points: Array<Point>;
+}
+
+interface Tool {
+  name: string;
+  icon: string;
+  tooltip: string;
+  keyboardShortcut: string;
+}
+
+interface DrawingTool extends Tool {
+  makeCommand: () => DrawCommand;
+}
+
+interface EditingTool extends Tool {
+  action: () => void;
 }
 
 interface Command {
@@ -52,15 +68,16 @@ mainCanvas.height = 1000 * dpr;
 ctx.scale(dpr, dpr);
 
 const leftToolbar = document.getElementById("left-toolbar") as HTMLDivElement;
-// const _rightToolbar = document.getElementById("right-toolbar") as HTMLDivElement;
+const rightToolbar = document.getElementById("right-toolbar") as HTMLDivElement;
 const commands: Array<DrawCommand> = [];
 const undoneCommands: Array<DrawCommand> = [];
-let currentCommand: MarkerCommand | null = null;
+let currentCommand: DrawCommand | null = null;
+let currentTool: DrawingTool | null = null;
 
 eventBus.addEventListener("canvas-changed", draw);
 
-const drawingTools = {
-  clear: {
+const editingTools: Array<EditingTool> = [
+  {
     name: "Clear Canvas",
     icon: "🧽",
     tooltip: "Clear the entire canvas",
@@ -72,35 +89,45 @@ const drawingTools = {
       eventBus.dispatchEvent(new Event("canvas-changed"));
     },
   },
-  undo: {
+  {
     name: "Undo",
     icon: "↩️",
     tooltip: "Undo the last action",
     keyboardShortcut: "KeyZ",
     action: undo,
   },
-  redo: {
+  {
     name: "Redo",
     icon: "↪️",
     tooltip: "Redo the last undone action",
     keyboardShortcut: "KeyY",
     action: redo,
   },
-};
+];
 
-for (const [id, tool] of Object.entries(drawingTools)) {
-  const button = document.createElement("button");
-  button.id = id;
-  button.title = `[${tool.keyboardShortcut}] ${tool.tooltip}`;
-  button.textContent = tool.icon;
-  button.addEventListener("click", tool.action);
-  leftToolbar.appendChild(button);
+const drawingTools: Array<DrawingTool> = [
+  {
+    name: "Marker",
+    icon: "🖊️",
+    tooltip: "Draw with the marker tool",
+    keyboardShortcut: "KeyM",
+    makeCommand: () => new MarkerCommand({ points: [] }),
+  },
+];
+
+for (const tool of editingTools) {
+  createToolbarButton(tool, leftToolbar);
+}
+
+for (const tool of drawingTools) {
+  createToolbarButton(tool, rightToolbar);
 }
 
 mainCanvas.addEventListener("mousedown", (event) => {
   if (event.button !== 0) return;
+  if (currentTool === null) return;
   isDrawing = true;
-  currentCommand = new MarkerCommand({ points: [] });
+  currentCommand = currentTool.makeCommand();
   commands.push(currentCommand);
 });
 
@@ -109,7 +136,6 @@ mainCanvas.addEventListener("mouseup", (event) => {
   isDrawing = false;
   currentCommand = null;
   undoneCommands.splice(0);
-  eventBus.dispatchEvent(new Event("canvas-changed"));
 });
 
 mainCanvas.addEventListener("mousemove", (event) => {
@@ -129,12 +155,42 @@ mainCanvas.addEventListener("mouseleave", () => {
 });
 
 document.addEventListener("keydown", (event) => {
-  for (const tool of Object.values(drawingTools)) {
+  for (const tool of Object.values(editingTools)) {
     if (event.code === tool.keyboardShortcut) {
       tool.action();
     }
   }
 });
+
+function createToolbarButton(tool: Tool, toolbar: HTMLDivElement) {
+  const button = document.createElement("button");
+  button.id = tool.name.toLowerCase().replace(/\s+/g, "-") + "-button";
+  button.title = `[${tool.keyboardShortcut}] ${tool.tooltip}`;
+  button.textContent = tool.icon;
+  if ("action" in tool) {
+    button.addEventListener("click", () => (tool as EditingTool).action());
+  } else if (tool as DrawingTool) {
+    button.addEventListener("click", () => {
+      selectDrawingTool(tool, button, toolbar);
+    });
+  }
+  toolbar.appendChild(button);
+}
+
+function selectDrawingTool(
+  tool: Tool,
+  button: HTMLButtonElement,
+  toolbar: HTMLDivElement,
+) {
+  currentTool = tool as DrawingTool;
+  button.classList.add("active-tool");
+  // Deactivate other buttons
+  for (const sibling of toolbar.children) {
+    if (sibling !== button) {
+      sibling.classList.remove("active-tool");
+    }
+  }
+}
 
 function draw() {
   ctx.clearRect(0, 0, mainCanvas.width, mainCanvas.height);
