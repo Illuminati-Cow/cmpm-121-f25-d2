@@ -6,6 +6,39 @@ interface Line {
   points: Array<Point>;
 }
 
+interface DrawCommand {
+  execute(ctx: CanvasRenderingContext2D): void;
+  addPoint(point: Point): void;
+}
+
+class MarkerCommand implements DrawCommand {
+  #line: Line;
+
+  constructor(line: Line) {
+    this.#line = line;
+  }
+
+  execute(ctx: CanvasRenderingContext2D) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.strokeStyle = "black";
+    ctx.lineWidth = 5;
+    if (this.#line.points.length === 0) {
+      return;
+    }
+    ctx.moveTo(this.#line.points[0]!.x, this.#line.points[0]!.y);
+    for (const point of this.#line.points) {
+      ctx.lineTo(point.x, point.y);
+    }
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  addPoint(point: Point) {
+    this.#line.points.push(point);
+  }
+}
+
 const eventBus = new EventTarget();
 const mainCanvas = document.getElementById("main-canvas") as HTMLCanvasElement;
 const ctx = mainCanvas.getContext("2d")!;
@@ -17,8 +50,9 @@ ctx.scale(dpr, dpr);
 
 const leftToolbar = document.getElementById("left-toolbar") as HTMLDivElement;
 // const _rightToolbar = document.getElementById("right-toolbar") as HTMLDivElement;
-const lines: Array<Line> = [];
-const undoneLines: Array<Line> = [];
+const commands: Array<DrawCommand> = [];
+const undoneCommands: Array<DrawCommand> = [];
+let currentCommand: MarkerCommand | null = null;
 
 eventBus.addEventListener("canvas-changed", draw);
 
@@ -29,7 +63,9 @@ const drawingTools = {
     tooltip: "Clear the entire canvas",
     keyboardShortcut: "KeyC",
     action: () => {
-      lines.splice(0);
+      commands.splice(0);
+      undoneCommands.splice(0);
+      currentCommand = null;
       eventBus.dispatchEvent(new Event("canvas-changed"));
     },
   },
@@ -61,18 +97,20 @@ for (const [id, tool] of Object.entries(drawingTools)) {
 mainCanvas.addEventListener("mousedown", (event) => {
   if (event.button !== 0) return;
   isDrawing = true;
-  lines.push({ points: [] });
+  currentCommand = new MarkerCommand({ points: [] });
+  commands.push(currentCommand);
 });
 
 mainCanvas.addEventListener("mouseup", (event) => {
   if (event.button !== 0) return;
   isDrawing = false;
+  currentCommand = null;
 });
 
 mainCanvas.addEventListener("mousemove", (event) => {
-  if (!isDrawing) return;
+  if (!isDrawing || currentCommand === null) return;
   const point = screenToCanvasCoords(event.clientX, event.clientY);
-  lines[lines.length - 1]!.points.push(point);
+  currentCommand.addPoint(point);
   eventBus.dispatchEvent(new Event("canvas-changed"));
 });
 
@@ -84,6 +122,7 @@ mainCanvas.addEventListener("mouseenter", (event) => {
 
 mainCanvas.addEventListener("mouseleave", () => {
   isDrawing = false;
+  currentCommand = null;
 });
 
 document.addEventListener("keydown", (event) => {
@@ -96,30 +135,20 @@ document.addEventListener("keydown", (event) => {
 
 function draw() {
   ctx.clearRect(0, 0, mainCanvas.width, mainCanvas.height);
-  ctx.strokeStyle = "black";
-  ctx.lineWidth = 5;
-  for (const line of lines) {
-    ctx.beginPath();
-    if (line.points.length === 0) {
-      continue;
-    }
-    ctx.moveTo(line.points[0]!.x, line.points[0]!.y);
-    for (const point of line.points) {
-      ctx.lineTo(point.x, point.y);
-    }
-    ctx.stroke();
+  for (const command of commands) {
+    command.execute(ctx);
   }
 }
 
 function undo() {
-  if (lines.length === 0) return;
-  undoneLines.push(lines.pop()!);
+  if (commands.length === 0) return;
+  undoneCommands.push(commands.pop()!);
   eventBus.dispatchEvent(new Event("canvas-changed"));
 }
 
 function redo() {
-  if (undoneLines.length === 0) return;
-  lines.push(undoneLines.pop()!);
+  if (undoneCommands.length === 0) return;
+  commands.push(undoneCommands.pop()!);
   eventBus.dispatchEvent(new Event("canvas-changed"));
 }
 
