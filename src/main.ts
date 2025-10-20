@@ -6,8 +6,11 @@ interface Line {
   points: Array<Point>;
 }
 
-interface DrawCommand {
+interface Command {
   execute(ctx: CanvasRenderingContext2D): void;
+}
+
+interface DrawCommand extends Command {
   addPoint(point: Point): void;
 }
 
@@ -63,8 +66,8 @@ const drawingTools = {
     tooltip: "Clear the entire canvas",
     keyboardShortcut: "KeyC",
     action: () => {
-      commands.splice(0);
       undoneCommands.splice(0);
+      commands.splice(0);
       currentCommand = null;
       eventBus.dispatchEvent(new Event("canvas-changed"));
     },
@@ -105,6 +108,8 @@ mainCanvas.addEventListener("mouseup", (event) => {
   if (event.button !== 0) return;
   isDrawing = false;
   currentCommand = null;
+  undoneCommands.splice(0);
+  eventBus.dispatchEvent(new Event("canvas-changed"));
 });
 
 mainCanvas.addEventListener("mousemove", (event) => {
@@ -114,10 +119,8 @@ mainCanvas.addEventListener("mousemove", (event) => {
   eventBus.dispatchEvent(new Event("canvas-changed"));
 });
 
-mainCanvas.addEventListener("mouseenter", (event) => {
-  if (event.buttons === 1) {
-    isDrawing = true;
-  }
+mainCanvas.addEventListener("mouseenter", (_event) => {
+  // No action needed on mouse enter for now
 });
 
 mainCanvas.addEventListener("mouseleave", () => {
