@@ -15,7 +15,7 @@ interface Tool {
 }
 
 interface DrawingTool extends Tool {
-  makeCommand: () => DrawCommand;
+  makeCommand: (point: Point) => DrawCommand;
 }
 
 interface EditingTool extends Tool {
@@ -23,11 +23,49 @@ interface EditingTool extends Tool {
 }
 
 interface Command {
-  execute(ctx: CanvasRenderingContext2D): void;
+  execute(
+    ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
+  ): void;
 }
 
 interface DrawCommand extends Command {
   addPoint(point: Point): void;
+}
+
+class DrawCursorCommand implements DrawCommand {
+  #point: Point;
+  #offscreenCanvas: OffscreenCanvas;
+  tool: DrawingTool;
+
+  constructor(point: Point, tool: DrawingTool) {
+    this.#point = point;
+    this.tool = tool;
+    this.#offscreenCanvas = new OffscreenCanvas(32, 32);
+  }
+
+  execute(ctx: CanvasRenderingContext2D) {
+    const offscreenCtx = this.#offscreenCanvas.getContext("2d")!;
+    offscreenCtx.clearRect(
+      0,
+      0,
+      this.#offscreenCanvas.width,
+      this.#offscreenCanvas.height,
+    );
+    const command = this.tool.makeCommand({
+      x: this.#offscreenCanvas.width / 2,
+      y: this.#offscreenCanvas.height / 2,
+    });
+    command.execute(offscreenCtx);
+    ctx.drawImage(
+      this.#offscreenCanvas,
+      this.#point.x - this.#offscreenCanvas.width / 2,
+      this.#point.y - this.#offscreenCanvas.height / 2,
+    );
+  }
+
+  addPoint(point: Point) {
+    this.#point = point;
+  }
 }
 
 class MarkerCommand implements DrawCommand {
@@ -41,8 +79,17 @@ class MarkerCommand implements DrawCommand {
     ctx.save();
     ctx.beginPath();
     ctx.strokeStyle = "black";
+    ctx.fillStyle = "black";
     ctx.lineWidth = 5;
     if (this.#line.points.length === 0) {
+      return;
+    }
+    // Draw a dot if only one point as a one point line is not visible
+    if (this.#line.points.length === 1) {
+      const point = this.#line.points[0]!;
+      ctx.arc(point.x, point.y, 2.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
       return;
     }
     ctx.moveTo(this.#line.points[0]!.x, this.#line.points[0]!.y);
@@ -73,6 +120,14 @@ class PencilCommand implements DrawCommand {
     if (this.#line.points.length === 0) {
       return;
     }
+    if (this.#line.points.length === 1) {
+      const point = this.#line.points[0]!;
+      ctx.arc(point.x, point.y, 1, 0, Math.PI * 2);
+      ctx.fillStyle = "gray";
+      ctx.fill();
+      ctx.restore();
+      return;
+    }
     ctx.moveTo(this.#line.points[0]!.x, this.#line.points[0]!.y);
     for (const point of this.#line.points) {
       ctx.lineTo(point.x, point.y);
@@ -101,8 +156,23 @@ const commands: Array<DrawCommand> = [];
 const undoneCommands: Array<DrawCommand> = [];
 let currentCommand: DrawCommand | null = null;
 let currentTool: DrawingTool | null = null;
+let cursorCommand: DrawCursorCommand | null = null;
 
 eventBus.addEventListener("canvas-changed", draw);
+eventBus.addEventListener("tool-changed", () => {
+  cursorCommand = new DrawCursorCommand({ x: 0, y: 0 }, currentTool!);
+  console.log("Tool changed to:", currentTool?.name);
+});
+// Draw cursor on tool move
+eventBus.addEventListener("tool-moved", (baseEvent) => {
+  if (cursorCommand === null) return;
+  const moveEvent = (baseEvent as CustomEvent<MouseEvent>).detail as MouseEvent;
+  const point = screenToCanvasCoords(moveEvent.clientX, moveEvent.clientY);
+  cursorCommand.addPoint(point);
+  draw();
+  // Draw the cursor on top
+  cursorCommand.execute(ctx);
+});
 
 const editingTools: Array<EditingTool> = [
   {
@@ -139,14 +209,14 @@ const drawingTools: Array<DrawingTool> = [
     icon: "🖊️",
     tooltip: "Draw with the marker tool",
     keyboardShortcut: "KeyM",
-    makeCommand: () => new MarkerCommand({ points: [] }),
+    makeCommand: (point) => new MarkerCommand({ points: [point] }),
   },
   {
     name: "Pencil",
     icon: "✏️",
     tooltip: "Draw with the pencil tool",
     keyboardShortcut: "KeyP",
-    makeCommand: () => new PencilCommand({ points: [] }),
+    makeCommand: (point) => new PencilCommand({ points: [point] }),
   },
 ];
 
@@ -162,8 +232,14 @@ mainCanvas.addEventListener("mousedown", (event) => {
   if (event.button !== 0) return;
   if (currentTool === null) return;
   isDrawing = true;
-  currentCommand = currentTool.makeCommand();
+  const point = screenToCanvasCoords(event.clientX, event.clientY);
+  currentCommand = currentTool.makeCommand({
+    x: point.x,
+    y: point.y,
+  });
   commands.push(currentCommand);
+  mainCanvas.style.cursor = "none";
+  eventBus.dispatchEvent(new Event("canvas-changed"));
 });
 
 mainCanvas.addEventListener("mouseup", (event) => {
@@ -171,10 +247,21 @@ mainCanvas.addEventListener("mouseup", (event) => {
   isDrawing = false;
   currentCommand = null;
   undoneCommands.splice(0);
+  eventBus.dispatchEvent(
+    new CustomEvent<MouseEvent>("tool-moved", { detail: event }),
+  );
 });
 
 mainCanvas.addEventListener("mousemove", (event) => {
-  if (!isDrawing || currentCommand === null) return;
+  if (currentTool === null) return;
+  mainCanvas.style.cursor = "none";
+  if (!isDrawing) {
+    eventBus.dispatchEvent(
+      new CustomEvent<MouseEvent>("tool-moved", { detail: event }),
+    );
+    return;
+  }
+  if (currentCommand === null) return;
   const point = screenToCanvasCoords(event.clientX, event.clientY);
   currentCommand.addPoint(point);
   eventBus.dispatchEvent(new Event("canvas-changed"));
@@ -187,6 +274,7 @@ mainCanvas.addEventListener("mouseenter", (_event) => {
 mainCanvas.addEventListener("mouseleave", () => {
   isDrawing = false;
   currentCommand = null;
+  mainCanvas.style.cursor = "default";
 });
 
 document.addEventListener("keydown", (event) => {
@@ -218,6 +306,9 @@ function selectDrawingTool(
   toolbar: HTMLDivElement,
 ) {
   currentTool = tool as DrawingTool;
+  eventBus.dispatchEvent(
+    new CustomEvent("tool-changed", { detail: { newTool: tool } }),
+  );
   button.classList.add("active-tool");
   // Deactivate other buttons
   for (const sibling of toolbar.children) {
