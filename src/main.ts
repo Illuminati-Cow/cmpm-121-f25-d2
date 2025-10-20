@@ -58,6 +58,34 @@ class MarkerCommand implements DrawCommand {
   }
 }
 
+class PencilCommand implements DrawCommand {
+  #line: Line;
+
+  constructor(line: Line) {
+    this.#line = line;
+  }
+
+  execute(ctx: CanvasRenderingContext2D) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.strokeStyle = "gray";
+    ctx.lineWidth = 2;
+    if (this.#line.points.length === 0) {
+      return;
+    }
+    ctx.moveTo(this.#line.points[0]!.x, this.#line.points[0]!.y);
+    for (const point of this.#line.points) {
+      ctx.lineTo(point.x, point.y);
+    }
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  addPoint(point: Point) {
+    this.#line.points.push(point);
+  }
+}
+
 const eventBus = new EventTarget();
 const mainCanvas = document.getElementById("main-canvas") as HTMLCanvasElement;
 const ctx = mainCanvas.getContext("2d")!;
@@ -112,6 +140,13 @@ const drawingTools: Array<DrawingTool> = [
     tooltip: "Draw with the marker tool",
     keyboardShortcut: "KeyM",
     makeCommand: () => new MarkerCommand({ points: [] }),
+  },
+  {
+    name: "Pencil",
+    icon: "✏️",
+    tooltip: "Draw with the pencil tool",
+    keyboardShortcut: "KeyP",
+    makeCommand: () => new PencilCommand({ points: [] }),
   },
 ];
 
