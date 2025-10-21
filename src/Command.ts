@@ -87,11 +87,12 @@ export class DrawCursorCommand implements DrawCommand {
   constructor(point: Point, tool: DrawingTool) {
     this.#point = point;
     this.tool = tool;
-    this.#offscreenCanvas = new OffscreenCanvas(32, 32);
+    this.#offscreenCanvas = new OffscreenCanvas(128, 128);
   }
 
   execute(ctx: CanvasRenderingContext2D) {
     const offscreenCtx = this.#offscreenCanvas.getContext("2d")!;
+    offscreenCtx.globalAlpha = 0.8;
     offscreenCtx.clearRect(
       0,
       0,
