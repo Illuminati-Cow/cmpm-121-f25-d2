@@ -1,145 +1,16 @@
-interface Point {
-  x: number;
-  y: number;
-}
-
-interface Line {
-  points: Array<Point>;
-}
-
-interface Tool {
-  name: string;
-  icon: string;
-  tooltip: string;
-  keyboardShortcut: string;
-}
-
-interface DrawingTool extends Tool {
-  makeCommand: (point: Point) => DrawCommand;
-}
-
-interface EditingTool extends Tool {
-  action: () => void;
-}
-
-interface Command {
-  execute(
-    ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
-  ): void;
-}
-
-interface DrawCommand extends Command {
-  addPoint(point: Point): void;
-}
-
-class DrawCursorCommand implements DrawCommand {
-  #point: Point;
-  #offscreenCanvas: OffscreenCanvas;
-  tool: DrawingTool;
-
-  constructor(point: Point, tool: DrawingTool) {
-    this.#point = point;
-    this.tool = tool;
-    this.#offscreenCanvas = new OffscreenCanvas(32, 32);
-  }
-
-  execute(ctx: CanvasRenderingContext2D) {
-    const offscreenCtx = this.#offscreenCanvas.getContext("2d")!;
-    offscreenCtx.clearRect(
-      0,
-      0,
-      this.#offscreenCanvas.width,
-      this.#offscreenCanvas.height,
-    );
-    const command = this.tool.makeCommand({
-      x: this.#offscreenCanvas.width / 2,
-      y: this.#offscreenCanvas.height / 2,
-    });
-    command.execute(offscreenCtx);
-    ctx.drawImage(
-      this.#offscreenCanvas,
-      this.#point.x - this.#offscreenCanvas.width / 2,
-      this.#point.y - this.#offscreenCanvas.height / 2,
-    );
-  }
-
-  addPoint(point: Point) {
-    this.#point = point;
-  }
-}
-
-class MarkerCommand implements DrawCommand {
-  #line: Line;
-
-  constructor(line: Line) {
-    this.#line = line;
-  }
-
-  execute(ctx: CanvasRenderingContext2D) {
-    ctx.save();
-    ctx.beginPath();
-    ctx.strokeStyle = "black";
-    ctx.fillStyle = "black";
-    ctx.lineWidth = 5;
-    if (this.#line.points.length === 0) {
-      return;
-    }
-    // Draw a dot if only one point as a one point line is not visible
-    if (this.#line.points.length === 1) {
-      const point = this.#line.points[0]!;
-      ctx.arc(point.x, point.y, 2.5, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.restore();
-      return;
-    }
-    ctx.moveTo(this.#line.points[0]!.x, this.#line.points[0]!.y);
-    for (const point of this.#line.points) {
-      ctx.lineTo(point.x, point.y);
-    }
-    ctx.stroke();
-    ctx.restore();
-  }
-
-  addPoint(point: Point) {
-    this.#line.points.push(point);
-  }
-}
-
-class PencilCommand implements DrawCommand {
-  #line: Line;
-
-  constructor(line: Line) {
-    this.#line = line;
-  }
-
-  execute(ctx: CanvasRenderingContext2D) {
-    ctx.save();
-    ctx.beginPath();
-    ctx.strokeStyle = "gray";
-    ctx.lineWidth = 2;
-    if (this.#line.points.length === 0) {
-      return;
-    }
-    if (this.#line.points.length === 1) {
-      const point = this.#line.points[0]!;
-      ctx.arc(point.x, point.y, 1, 0, Math.PI * 2);
-      ctx.fillStyle = "gray";
-      ctx.fill();
-      ctx.restore();
-      return;
-    }
-    ctx.moveTo(this.#line.points[0]!.x, this.#line.points[0]!.y);
-    for (const point of this.#line.points) {
-      ctx.lineTo(point.x, point.y);
-    }
-    ctx.stroke();
-    ctx.restore();
-  }
-
-  addPoint(point: Point) {
-    this.#line.points.push(point);
-  }
-}
+import {
+  Command,
+  DrawCommand,
+  DrawCursorCommand,
+  MarkerCommand,
+  PencilCommand,
+} from "./Command.ts";
+import {
+  createToolbarButton,
+  currentTool,
+  DrawingTool,
+  EditingTool,
+} from "./Tools.ts";
 
 const eventBus = new EventTarget();
 const mainCanvas = document.getElementById("main-canvas") as HTMLCanvasElement;
@@ -152,10 +23,9 @@ ctx.scale(dpr, dpr);
 
 const leftToolbar = document.getElementById("left-toolbar") as HTMLDivElement;
 const rightToolbar = document.getElementById("right-toolbar") as HTMLDivElement;
-const commands: Array<DrawCommand> = [];
-const undoneCommands: Array<DrawCommand> = [];
+const commands: Array<Command> = [];
+const undoneCommands: Array<Command> = [];
 let currentCommand: DrawCommand | null = null;
-let currentTool: DrawingTool | null = null;
 let cursorCommand: DrawCursorCommand | null = null;
 
 eventBus.addEventListener("canvas-changed", draw);
@@ -168,7 +38,7 @@ eventBus.addEventListener("tool-moved", (baseEvent) => {
   if (cursorCommand === null) return;
   const moveEvent = (baseEvent as CustomEvent<MouseEvent>).detail as MouseEvent;
   const point = screenToCanvasCoords(moveEvent.clientX, moveEvent.clientY);
-  cursorCommand.addPoint(point);
+  cursorCommand.recordPoint(point);
   draw();
   // Draw the cursor on top
   cursorCommand.execute(ctx);
@@ -221,11 +91,11 @@ const drawingTools: Array<DrawingTool> = [
 ];
 
 for (const tool of editingTools) {
-  createToolbarButton(tool, leftToolbar);
+  createToolbarButton(tool, leftToolbar, eventBus);
 }
 
 for (const tool of drawingTools) {
-  createToolbarButton(tool, rightToolbar);
+  createToolbarButton(tool, rightToolbar, eventBus);
 }
 
 mainCanvas.addEventListener("mousedown", (event) => {
@@ -263,7 +133,7 @@ mainCanvas.addEventListener("mousemove", (event) => {
   }
   if (currentCommand === null) return;
   const point = screenToCanvasCoords(event.clientX, event.clientY);
-  currentCommand.addPoint(point);
+  currentCommand.recordPoint(point);
   eventBus.dispatchEvent(new Event("canvas-changed"));
 });
 
@@ -284,39 +154,6 @@ document.addEventListener("keydown", (event) => {
     }
   }
 });
-
-function createToolbarButton(tool: Tool, toolbar: HTMLDivElement) {
-  const button = document.createElement("button");
-  button.id = tool.name.toLowerCase().replace(/\s+/g, "-") + "-button";
-  button.title = `[${tool.keyboardShortcut}] ${tool.tooltip}`;
-  button.textContent = tool.icon;
-  if ("action" in tool) {
-    button.addEventListener("click", () => (tool as EditingTool).action());
-  } else if (tool as DrawingTool) {
-    button.addEventListener("click", () => {
-      selectDrawingTool(tool, button, toolbar);
-    });
-  }
-  toolbar.appendChild(button);
-}
-
-function selectDrawingTool(
-  tool: Tool,
-  button: HTMLButtonElement,
-  toolbar: HTMLDivElement,
-) {
-  currentTool = tool as DrawingTool;
-  eventBus.dispatchEvent(
-    new CustomEvent("tool-changed", { detail: { newTool: tool } }),
-  );
-  button.classList.add("active-tool");
-  // Deactivate other buttons
-  for (const sibling of toolbar.children) {
-    if (sibling !== button) {
-      sibling.classList.remove("active-tool");
-    }
-  }
-}
 
 function draw() {
   ctx.clearRect(0, 0, mainCanvas.width, mainCanvas.height);
