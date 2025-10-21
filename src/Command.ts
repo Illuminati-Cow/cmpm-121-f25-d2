@@ -19,6 +19,7 @@ export interface DrawCommand extends Command {
 export class DrawStickerCommand implements DrawCommand {
   #point: Point;
   #image: ImageBitmap | HTMLImageElement;
+  #scale: number = 1.0;
 
   constructor(
     point: Point,
@@ -35,6 +36,11 @@ export class DrawStickerCommand implements DrawCommand {
 
   setImage(image: ImageBitmap | HTMLImageElement): DrawStickerCommand {
     this.#image = image;
+    return this;
+  }
+
+  setScale(scale: number): DrawStickerCommand {
+    this.#scale = scale;
     return this;
   }
 
@@ -76,7 +82,11 @@ export class DrawStickerCommand implements DrawCommand {
   }
 
   execute(ctx: CanvasRenderingContext2D) {
-    ctx.drawImage(this.#image, this.#point.x, this.#point.y);
+    ctx.save();
+    ctx.translate(this.#point.x, this.#point.y);
+    ctx.scale(this.#scale, this.#scale);
+    ctx.drawImage(this.#image, 0, 0);
+    ctx.restore();
   }
 }
 export class DrawCursorCommand implements DrawCommand {
@@ -87,7 +97,7 @@ export class DrawCursorCommand implements DrawCommand {
   constructor(point: Point, tool: DrawingTool) {
     this.#point = point;
     this.tool = tool;
-    this.#offscreenCanvas = new OffscreenCanvas(128, 128);
+    this.#offscreenCanvas = new OffscreenCanvas(256, 256);
   }
 
   execute(ctx: CanvasRenderingContext2D) {

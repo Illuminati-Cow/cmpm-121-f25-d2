@@ -24,14 +24,19 @@ ctx.scale(dpr, dpr);
 
 const leftToolbar = document.getElementById("left-toolbar") as HTMLDivElement;
 const rightToolbar = document.getElementById("right-toolbar") as HTMLDivElement;
-const stickerWindow = document.querySelector(
-  ".sticker-window",
+const toolOptionsWindow = document.getElementById(
+  "tool-options-window",
 ) as HTMLDivElement;
 
 const commands: Array<Command> = [];
 const undoneCommands: Array<Command> = [];
 let currentCommand: DrawCommand | null = null;
 let cursorCommand: DrawCursorCommand | null = null;
+const stickers: Array<HTMLImageElement> = [
+  await DrawStickerCommand.createImageFromText("😀"),
+  await DrawStickerCommand.createImageFromText("🚀"),
+  await DrawStickerCommand.createImageFromText("🌟"),
+];
 
 eventBus.addEventListener("canvas-changed", draw);
 eventBus.addEventListener("tool-changed", () => {
@@ -54,25 +59,37 @@ eventBus.addEventListener("tool-moved", (baseEvent) => {
   let isDragging = false;
   let offsetX = 0;
   let offsetY = 0;
-  stickerWindow.style.left = mainCanvas.offsetLeft + "px";
-  stickerWindow.style.top = mainCanvas.offsetTop + "px";
+  toolOptionsWindow.style.left = mainCanvas.offsetLeft + "px";
+  toolOptionsWindow.style.top = mainCanvas.offsetTop + "px";
 
-  stickerWindow.addEventListener("mousedown", (event) => {
+  toolOptionsWindow.addEventListener("mousedown", (event) => {
     if (event.button !== 0) return;
     isDragging = true;
-    offsetX = event.clientX - stickerWindow.offsetLeft;
-    offsetY = event.clientY - stickerWindow.offsetTop;
+    offsetX = event.clientX - toolOptionsWindow.offsetLeft;
+    offsetY = event.clientY - toolOptionsWindow.offsetTop;
   });
 
   document.addEventListener("mousemove", (event) => {
     if (!isDragging) return;
-    stickerWindow.style.left = `${event.clientX - offsetX}px`;
-    stickerWindow.style.top = `${event.clientY - offsetY}px`;
+    toolOptionsWindow.style.left = `${event.clientX - offsetX}px`;
+    toolOptionsWindow.style.top = `${event.clientY - offsetY}px`;
   });
 
   document.addEventListener("mouseup", (event) => {
     if (event.button !== 0) return;
     isDragging = false;
+  });
+
+  eventBus.addEventListener("tool-changed", (event) => {
+    const newTool = (event as CustomEvent).detail.newTool;
+    const contentDiv = document.getElementById(
+      "tool-options-content",
+    ) as HTMLDivElement;
+    contentDiv.innerHTML = "";
+    console.log("Updating tool options window for tool:", newTool.name);
+    if (newTool.name === "Sticker") {
+      initializeStickerToolOptions(newTool);
+    }
   });
 }
 
@@ -109,9 +126,8 @@ const editingTools: Array<EditingTool> = [
     tooltip: "Adjust tool options",
     keyboardShortcut: "KeyO",
     action: () => {
-      stickerWindow.style.display = stickerWindow.style.display === "block"
-        ? "none"
-        : "block";
+      toolOptionsWindow.style.display =
+        toolOptionsWindow.style.display === "block" ? "none" : "block";
     },
   },
   {
@@ -134,9 +150,12 @@ const stickerTool: StickerTool = {
   tooltip: "Place a sticker",
   keyboardShortcut: "KeyS",
   sticker: new Image(),
+  scale: 1.0,
+  canLeaveCanvas: true,
   makeCommand: (point) => {
     const stickerCommand = new DrawStickerCommand(point);
     stickerCommand.setImage(stickerTool.sticker);
+    stickerCommand.setScale(stickerTool.scale);
     return stickerCommand;
   },
 };
@@ -209,14 +228,24 @@ for (const tool of drawingTools) {
     eventBus.dispatchEvent(new Event("canvas-changed"));
   });
 
-  mainCanvas.addEventListener("mouseenter", (_event) => {
-    // No action needed on mouse enter for now
+  mainCanvas.addEventListener("mouseenter", (event) => {
+    if (currentTool === null) return;
+    cursorCommand = new DrawCursorCommand({ x: 0, y: 0 }, currentTool!);
+    eventBus.dispatchEvent(
+      new CustomEvent<MouseEvent>("tool-moved", {
+        detail: event as MouseEvent,
+      }),
+    );
   });
 
   mainCanvas.addEventListener("mouseleave", () => {
+    if (currentTool?.canLeaveCanvas) return;
     isDrawing = false;
     currentCommand = null;
     mainCanvas.style.cursor = "default";
+    if (cursorCommand === null) return;
+    cursorCommand = null;
+    eventBus.dispatchEvent(new Event("canvas-changed"));
   });
 }
 
@@ -227,6 +256,46 @@ document.addEventListener("keydown", (event) => {
     }
   }
 });
+
+function initializeStickerToolOptions(stickerTool: StickerTool) {
+  const contentDiv = document.getElementById(
+    "tool-options-content",
+  ) as HTMLDivElement;
+  contentDiv.classList.add("sticker-tool-options");
+  contentDiv.innerHTML = "";
+  const stickerDisplayDiv = document.createElement("div");
+  stickerDisplayDiv.classList.add("sticker-display");
+  contentDiv.appendChild(stickerDisplayDiv);
+  updateStickerDisplay();
+
+  function updateStickerDisplay() {
+    // Clear existing stickers except the add button
+    stickerDisplayDiv
+      .querySelectorAll(".sticker-option")
+      .forEach((el) => el.remove());
+    for (const sticker of stickers) {
+      addStickerOption(sticker);
+    }
+  }
+
+  function addStickerOption(image: HTMLImageElement): HTMLImageElement {
+    image.classList.add("sticker-option");
+    image.title = "Select this sticker";
+    image.id = "sticker-option-" + stickers.length;
+    image.addEventListener("click", () => {
+      stickerTool.sticker = image;
+      image.classList.add("selected-sticker");
+      // Deselect other stickers
+      stickerDisplayDiv.querySelectorAll(".sticker-option").forEach((el) => {
+        if (el !== image) {
+          el.classList.remove("selected-sticker");
+        }
+      });
+    });
+    stickerDisplayDiv.appendChild(image);
+    return image;
+  }
+}
 
 function draw() {
   ctx.clearRect(0, 0, mainCanvas.width, mainCanvas.height);

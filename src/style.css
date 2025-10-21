@@ -3,13 +3,13 @@ body {
   overflow: hidden;
   height: 100svh;
   background-image: linear-gradient(to bottom right, lightblue, lightgreen);
+  font-family: Arial, sans-serif;
 }
 
 h1 {
   top: 50%;
   left: 50%;
   color: black;
-  font-family: Arial, sans-serif;
   font-style: italic;
   font-size: 2vw;
   max-height: 5svh;
@@ -65,6 +65,11 @@ h1 {
   -moz-border-radius: 5px;
   -ms-border-radius: 5px;
   -o-border-radius: 5px;
+  transition: all 0.3s ease;
+  -webkit-transition: all 0.3s ease;
+  -moz-transition: all 0.3s ease;
+  -ms-transition: all 0.3s ease;
+  -o-transition: all 0.3s ease;
 }
 .sidebar:first-of-type {
   border-right: 2px solid gray;
@@ -86,4 +91,77 @@ h1 {
     violet,
     red
   ) 1;
+}
+
+.window {
+  position: absolute;
+  top: 10svh;
+  right: 10px;
+  width: 150px;
+  height: auto;
+  max-height: 70svh;
+  background-color: whitesmoke;
+  border: 2px solid gray;
+  box-shadow: 2px 2px 6px rgba(0, 0, 0, 0.3);
+  overflow-y: auto;
+  display: none;
+  padding: 10px;
+  z-index: 1000;
+  border-radius: 5px;
+}
+
+.sticker-tool-options {
+  display: flex;
+  flex-direction: column;
+  row-gap: 10px;
+}
+
+.sticker-display {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(40px, 1fr));
+  gap: 10px;
+}
+
+.sticker-display label {
+  font-size: 0.9rem;
+}
+
+.sticker-option {
+  width: 100%;
+  font-size: 1vw;
+  aspect-ratio: 1;
+  height: auto;
+  border: 1px solid gray;
+  border-radius: 5px;
+  background-color: transparent;
+  cursor: pointer;
+  box-shadow: 1px 1px 3px rgba(0, 0, 0, 0.2);
+  -webkit-border-radius: 5px;
+  -moz-border-radius: 5px;
+  -ms-border-radius: 5px;
+  -o-border-radius: 5px;
+}
+
+.sticker-display button:hover {
+  box-shadow: 2px 2px 6px rgba(0, 0, 0, 0.4);
+  cursor: pointer;
+}
+
+.sticker-display .selected-sticker {
+  border: 2px solid rgba(0, 194, 0, 0.633);
+}
+
+.loading-sticker {
+  opacity: 0.5;
+  pointer-events: none;
+  position: relative;
+}
+
+.loading-sticker::after {
+  content: "⏳";
+  position: relative;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 2rem;
 }

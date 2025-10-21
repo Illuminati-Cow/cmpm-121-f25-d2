@@ -9,9 +9,11 @@ export interface Tool {
 }
 export interface DrawingTool extends Tool {
   makeCommand: (point: Point) => DrawCommand;
+  canLeaveCanvas?: boolean;
 }
 export interface StickerTool extends DrawingTool {
   sticker: HTMLImageElement;
+  scale: number;
 }
 export interface EditingTool extends Tool {
   action: () => void;
