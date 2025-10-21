@@ -17,7 +17,6 @@ import {
 const eventBus = new EventTarget();
 const mainCanvas = document.getElementById("main-canvas") as HTMLCanvasElement;
 const ctx = mainCanvas.getContext("2d")!;
-let isDrawing = false;
 const dpr = globalThis.window.devicePixelRatio || 1;
 mainCanvas.width = 1000 * dpr;
 mainCanvas.height = 1000 * dpr;
@@ -50,6 +49,33 @@ eventBus.addEventListener("tool-moved", (baseEvent) => {
   cursorCommand.execute(ctx);
 });
 
+// Make tool options window draggable
+{
+  let isDragging = false;
+  let offsetX = 0;
+  let offsetY = 0;
+  stickerWindow.style.left = mainCanvas.offsetLeft + "px";
+  stickerWindow.style.top = mainCanvas.offsetTop + "px";
+
+  stickerWindow.addEventListener("mousedown", (event) => {
+    if (event.button !== 0) return;
+    isDragging = true;
+    offsetX = event.clientX - stickerWindow.offsetLeft;
+    offsetY = event.clientY - stickerWindow.offsetTop;
+  });
+
+  document.addEventListener("mousemove", (event) => {
+    if (!isDragging) return;
+    stickerWindow.style.left = `${event.clientX - offsetX}px`;
+    stickerWindow.style.top = `${event.clientY - offsetY}px`;
+  });
+
+  document.addEventListener("mouseup", (event) => {
+    if (event.button !== 0) return;
+    isDragging = false;
+  });
+}
+
 const editingTools: Array<EditingTool> = [
   {
     name: "Clear Canvas",
@@ -77,9 +103,32 @@ const editingTools: Array<EditingTool> = [
     keyboardShortcut: "KeyY",
     action: redo,
   },
+  {
+    name: "Tool Options",
+    icon: "🧰",
+    tooltip: "Adjust tool options",
+    keyboardShortcut: "KeyO",
+    action: () => {
+      stickerWindow.style.display = stickerWindow.style.display === "block"
+        ? "none"
+        : "block";
+    },
+  },
+  {
+    name: "Export",
+    icon: "💾",
+    tooltip: "Export the canvas as an image",
+    keyboardShortcut: "KeyE",
+    action: () => {
+      const link = document.createElement("a");
+      link.download = "canvas.png";
+      link.href = mainCanvas.toDataURL("image/png");
+      link.click();
+    },
+  },
 ];
 
-const stickerTool: StickerTool & EditingTool = {
+const stickerTool: StickerTool = {
   name: "Sticker",
   icon: "📌",
   tooltip: "Place a sticker",
@@ -89,11 +138,6 @@ const stickerTool: StickerTool & EditingTool = {
     const stickerCommand = new DrawStickerCommand(point);
     stickerCommand.setImage(stickerTool.sticker);
     return stickerCommand;
-  },
-  action: () => {
-    stickerWindow.style.display = stickerWindow.style.display === "block"
-      ? "none"
-      : "block";
   },
 };
 
@@ -123,54 +167,58 @@ for (const tool of drawingTools) {
   createToolbarButton(tool, rightToolbar, eventBus);
 }
 
-mainCanvas.addEventListener("mousedown", (event) => {
-  if (event.button !== 0) return;
-  if (currentTool === null) return;
-  isDrawing = true;
-  const point = screenToCanvasCoords(event.clientX, event.clientY);
-  currentCommand = currentTool.makeCommand({
-    x: point.x,
-    y: point.y,
+// Handle canvas mouse events
+{
+  let isDrawing = false;
+  mainCanvas.addEventListener("mousedown", (event) => {
+    if (event.button !== 0) return;
+    if (currentTool === null) return;
+    isDrawing = true;
+    const point = screenToCanvasCoords(event.clientX, event.clientY);
+    currentCommand = currentTool.makeCommand({
+      x: point.x,
+      y: point.y,
+    });
+    commands.push(currentCommand);
+    mainCanvas.style.cursor = "none";
+    eventBus.dispatchEvent(new Event("canvas-changed"));
   });
-  commands.push(currentCommand);
-  mainCanvas.style.cursor = "none";
-  eventBus.dispatchEvent(new Event("canvas-changed"));
-});
 
-mainCanvas.addEventListener("mouseup", (event) => {
-  if (event.button !== 0) return;
-  isDrawing = false;
-  currentCommand = null;
-  undoneCommands.splice(0);
-  eventBus.dispatchEvent(
-    new CustomEvent<MouseEvent>("tool-moved", { detail: event }),
-  );
-});
-
-mainCanvas.addEventListener("mousemove", (event) => {
-  if (currentTool === null) return;
-  mainCanvas.style.cursor = "none";
-  if (!isDrawing) {
+  mainCanvas.addEventListener("mouseup", (event) => {
+    if (event.button !== 0) return;
+    isDrawing = false;
+    currentCommand = null;
+    undoneCommands.splice(0);
     eventBus.dispatchEvent(
       new CustomEvent<MouseEvent>("tool-moved", { detail: event }),
     );
-    return;
-  }
-  if (currentCommand === null) return;
-  const point = screenToCanvasCoords(event.clientX, event.clientY);
-  currentCommand.recordPoint(point);
-  eventBus.dispatchEvent(new Event("canvas-changed"));
-});
+  });
 
-mainCanvas.addEventListener("mouseenter", (_event) => {
-  // No action needed on mouse enter for now
-});
+  mainCanvas.addEventListener("mousemove", (event) => {
+    if (currentTool === null) return;
+    mainCanvas.style.cursor = "none";
+    if (!isDrawing) {
+      eventBus.dispatchEvent(
+        new CustomEvent<MouseEvent>("tool-moved", { detail: event }),
+      );
+      return;
+    }
+    if (currentCommand === null) return;
+    const point = screenToCanvasCoords(event.clientX, event.clientY);
+    currentCommand.recordPoint(point);
+    eventBus.dispatchEvent(new Event("canvas-changed"));
+  });
 
-mainCanvas.addEventListener("mouseleave", () => {
-  isDrawing = false;
-  currentCommand = null;
-  mainCanvas.style.cursor = "default";
-});
+  mainCanvas.addEventListener("mouseenter", (_event) => {
+    // No action needed on mouse enter for now
+  });
+
+  mainCanvas.addEventListener("mouseleave", () => {
+    isDrawing = false;
+    currentCommand = null;
+    mainCanvas.style.cursor = "default";
+  });
+}
 
 document.addEventListener("keydown", (event) => {
   for (const tool of Object.values(editingTools)) {
