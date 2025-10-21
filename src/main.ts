@@ -2,6 +2,7 @@ import {
   Command,
   DrawCommand,
   DrawCursorCommand,
+  DrawStickerCommand,
   MarkerCommand,
   PencilCommand,
 } from "./Command.ts";
@@ -10,6 +11,7 @@ import {
   currentTool,
   DrawingTool,
   EditingTool,
+  StickerTool,
 } from "./Tools.ts";
 
 const eventBus = new EventTarget();
@@ -23,6 +25,10 @@ ctx.scale(dpr, dpr);
 
 const leftToolbar = document.getElementById("left-toolbar") as HTMLDivElement;
 const rightToolbar = document.getElementById("right-toolbar") as HTMLDivElement;
+const stickerWindow = document.querySelector(
+  ".sticker-window",
+) as HTMLDivElement;
+
 const commands: Array<Command> = [];
 const undoneCommands: Array<Command> = [];
 let currentCommand: DrawCommand | null = null;
@@ -73,6 +79,24 @@ const editingTools: Array<EditingTool> = [
   },
 ];
 
+const stickerTool: StickerTool & EditingTool = {
+  name: "Sticker",
+  icon: "📌",
+  tooltip: "Place a sticker",
+  keyboardShortcut: "KeyS",
+  sticker: new Image(),
+  makeCommand: (point) => {
+    const stickerCommand = new DrawStickerCommand(point);
+    stickerCommand.setImage(stickerTool.sticker);
+    return stickerCommand;
+  },
+  action: () => {
+    stickerWindow.style.display = stickerWindow.style.display === "block"
+      ? "none"
+      : "block";
+  },
+};
+
 const drawingTools: Array<DrawingTool> = [
   {
     name: "Marker",
@@ -88,6 +112,7 @@ const drawingTools: Array<DrawingTool> = [
     keyboardShortcut: "KeyP",
     makeCommand: (point) => new PencilCommand({ points: [point] }),
   },
+  stickerTool,
 ];
 
 for (const tool of editingTools) {

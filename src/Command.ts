@@ -61,6 +61,20 @@ export class DrawStickerCommand implements DrawCommand {
     });
   }
 
+  static createImageFromUrl(url: string): Promise<HTMLImageElement> {
+    const img = new Image();
+    img.src = url;
+    return new Promise((resolve, reject) => {
+      img.onload = () => {
+        resolve(img);
+      };
+      img.onerror = (e) => {
+        img.onerror = reject;
+        reject(e);
+      };
+    });
+  }
+
   execute(ctx: CanvasRenderingContext2D) {
     ctx.drawImage(this.#image, this.#point.x, this.#point.y);
   }
