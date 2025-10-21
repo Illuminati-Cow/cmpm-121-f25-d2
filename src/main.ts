@@ -266,6 +266,53 @@ function initializeStickerToolOptions(stickerTool: StickerTool) {
   const stickerDisplayDiv = document.createElement("div");
   stickerDisplayDiv.classList.add("sticker-display");
   contentDiv.appendChild(stickerDisplayDiv);
+  const addNewStickerButton = document.createElement("button");
+  addNewStickerButton.textContent = "📂";
+  addNewStickerButton.title = "Add Sticker From File";
+  stickerDisplayDiv.appendChild(addNewStickerButton);
+  addNewStickerButton.addEventListener("click", () => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "image/*";
+    input.click();
+    // Listen for file selection and load the sticker, then add it to the sticker options
+    input.addEventListener("change", () => {
+      if (input.files && input.files[0]) {
+        const file = input.files[0];
+        const readFileAsDataURL = (file: File): Promise<string> => {
+          return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+          });
+        };
+        readFileAsDataURL(file).then((dataURL) => {
+          addNewStickerButton.disabled = true;
+          const img = new Image();
+          addStickerOption(img).classList.add("loading-sticker");
+          img.onload = () => {
+            stickerTool.sticker = img;
+            stickers.push(img);
+            stickerTool.scale = img.naturalWidth > 200
+              ? 200 / img.naturalWidth
+              : 1.0;
+          };
+          img.width = 100;
+          img.src = dataURL;
+        }).catch((error) => {
+          console.error("Error reading sticker file:", error);
+          stickerDisplayDiv.querySelector(".loading-sticker")?.remove();
+        }).finally(() => {
+          stickerDisplayDiv.querySelector(".loading-sticker")?.classList.remove(
+            "loading-sticker",
+          );
+          addNewStickerButton.disabled = false;
+        });
+      }
+    });
+  });
+
   updateStickerDisplay();
 
   function updateStickerDisplay() {
