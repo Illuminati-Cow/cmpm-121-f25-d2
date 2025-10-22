@@ -8,11 +8,15 @@ export interface Tool {
   keyboardShortcut: string;
 }
 export interface DrawingTool extends Tool {
-  makeCommand: (point: Point) => DrawCommand;
+  makeCommand(point: Point): DrawCommand;
   canLeaveCanvas?: boolean;
 }
+export type Sticker = {
+  image: HTMLImageElement;
+  scale: number;
+};
 export interface StickerTool extends DrawingTool {
-  sticker: HTMLImageElement;
+  sticker: Sticker;
   scale: number;
 }
 export interface EditingTool extends Tool {

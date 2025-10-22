@@ -5,12 +5,14 @@ import {
   DrawStickerCommand,
   MarkerCommand,
   PencilCommand,
+  Point,
 } from "./Command.ts";
 import {
   createToolbarButton,
   currentTool,
   DrawingTool,
   EditingTool,
+  Sticker,
   StickerTool,
 } from "./Tools.ts";
 
@@ -18,8 +20,8 @@ const eventBus = new EventTarget();
 const mainCanvas = document.getElementById("main-canvas") as HTMLCanvasElement;
 const ctx = mainCanvas.getContext("2d")!;
 const dpr = globalThis.window.devicePixelRatio || 1;
-mainCanvas.width = 1000 * dpr;
-mainCanvas.height = 1000 * dpr;
+mainCanvas.width = 512 * dpr;
+mainCanvas.height = 512 * dpr;
 ctx.scale(dpr, dpr);
 
 const leftToolbar = document.getElementById("left-toolbar") as HTMLDivElement;
@@ -32,10 +34,10 @@ const commands: Array<Command> = [];
 const undoneCommands: Array<Command> = [];
 let currentCommand: DrawCommand | null = null;
 let cursorCommand: DrawCursorCommand | null = null;
-const stickers: Array<HTMLImageElement> = [
-  await DrawStickerCommand.createImageFromText("😀"),
-  await DrawStickerCommand.createImageFromText("🚀"),
-  await DrawStickerCommand.createImageFromText("🌟"),
+const stickers: Array<Sticker> = [
+  { image: await DrawStickerCommand.createImageFromText("😀"), scale: 1 },
+  { image: await DrawStickerCommand.createImageFromText("🚀"), scale: 1 },
+  { image: await DrawStickerCommand.createImageFromText("🌟"), scale: 1 },
 ];
 
 eventBus.addEventListener("canvas-changed", draw);
@@ -88,7 +90,7 @@ eventBus.addEventListener("tool-moved", (baseEvent) => {
     contentDiv.innerHTML = "";
     console.log("Updating tool options window for tool:", newTool.name);
     if (newTool.name === "Sticker") {
-      initializeStickerToolOptions(newTool);
+      initializeStickerToolOptions();
     }
   });
 }
@@ -149,13 +151,13 @@ const stickerTool: StickerTool = {
   icon: "📌",
   tooltip: "Place a sticker",
   keyboardShortcut: "KeyS",
-  sticker: new Image(),
+  sticker: { image: new Image(), scale: 1.0 },
   scale: 1.0,
   canLeaveCanvas: true,
-  makeCommand: (point) => {
+  makeCommand(point: Point): DrawCommand {
     const stickerCommand = new DrawStickerCommand(point);
-    stickerCommand.setImage(stickerTool.sticker);
-    stickerCommand.setScale(stickerTool.scale);
+    stickerCommand.setImage(stickerTool.sticker.image);
+    stickerCommand.setScale(stickerTool.scale * stickerTool.sticker.scale);
     return stickerCommand;
   },
 };
@@ -166,14 +168,18 @@ const drawingTools: Array<DrawingTool> = [
     icon: "🖊️",
     tooltip: "Draw with the marker tool",
     keyboardShortcut: "KeyM",
-    makeCommand: (point) => new MarkerCommand({ points: [point] }),
+    makeCommand(point: Point): DrawCommand {
+      return new MarkerCommand({ points: [point] });
+    },
   },
   {
     name: "Pencil",
     icon: "✏️",
     tooltip: "Draw with the pencil tool",
     keyboardShortcut: "KeyP",
-    makeCommand: (point) => new PencilCommand({ points: [point] }),
+    makeCommand(point: Point): DrawCommand {
+      return new PencilCommand({ points: [point] });
+    },
   },
   stickerTool,
 ];
@@ -198,7 +204,7 @@ for (const tool of drawingTools) {
       x: point.x,
       y: point.y,
     });
-    commands.push(currentCommand);
+    commands.push(currentCommand!);
     mainCanvas.style.cursor = "none";
     eventBus.dispatchEvent(new Event("canvas-changed"));
   });
@@ -257,7 +263,7 @@ document.addEventListener("keydown", (event) => {
   }
 });
 
-function initializeStickerToolOptions(stickerTool: StickerTool) {
+function initializeStickerToolOptions() {
   const contentDiv = document.getElementById(
     "tool-options-content",
   ) as HTMLDivElement;
@@ -266,11 +272,15 @@ function initializeStickerToolOptions(stickerTool: StickerTool) {
   const stickerDisplayDiv = document.createElement("div");
   stickerDisplayDiv.classList.add("sticker-display");
   contentDiv.appendChild(stickerDisplayDiv);
+  const addStickerFromFileButton = document.createElement("button");
+  addStickerFromFileButton.textContent = "📂";
+  addStickerFromFileButton.title = "Add Sticker From File";
+  stickerDisplayDiv.appendChild(addStickerFromFileButton);
   const addNewStickerButton = document.createElement("button");
-  addNewStickerButton.textContent = "📂";
-  addNewStickerButton.title = "Add Sticker From File";
+  addNewStickerButton.textContent = "➕";
+  addNewStickerButton.title = "Add New Sticker";
   stickerDisplayDiv.appendChild(addNewStickerButton);
-  addNewStickerButton.addEventListener("click", () => {
+  addStickerFromFileButton.addEventListener("click", () => {
     const input = document.createElement("input");
     input.type = "file";
     input.accept = "image/*";
@@ -288,29 +298,41 @@ function initializeStickerToolOptions(stickerTool: StickerTool) {
           });
         };
         readFileAsDataURL(file).then((dataURL) => {
-          addNewStickerButton.disabled = true;
+          addStickerFromFileButton.disabled = true;
           const img = new Image();
-          addStickerOption(img).classList.add("loading-sticker");
           img.onload = () => {
-            stickerTool.sticker = img;
-            stickers.push(img);
-            stickerTool.scale = img.naturalWidth > 200
-              ? 200 / img.naturalWidth
-              : 1.0;
+            const sticker = {
+              image: img,
+              scale: img.naturalWidth > 128 ? 128 / img.naturalWidth : 1.0,
+            };
+            stickers.push(sticker);
+            addStickerOption(sticker);
+            selectSticker(sticker);
           };
           img.width = 100;
           img.src = dataURL;
         }).catch((error) => {
           console.error("Error reading sticker file:", error);
-          stickerDisplayDiv.querySelector(".loading-sticker")?.remove();
         }).finally(() => {
-          stickerDisplayDiv.querySelector(".loading-sticker")?.classList.remove(
-            "loading-sticker",
-          );
-          addNewStickerButton.disabled = false;
+          addStickerFromFileButton.disabled = false;
         });
       }
     });
+  });
+
+  addNewStickerButton.addEventListener("click", () => {
+    const stickerText = prompt("Enter emoji or text for the new sticker:");
+    if (stickerText && stickerText.trim().length > 0) {
+      const imgPromise = DrawStickerCommand.createImageFromText(
+        stickerText.trim(),
+      );
+      imgPromise.then((img) => {
+        const sticker = { image: img, scale: 1 };
+        stickers.push(sticker);
+        addStickerOption(sticker);
+        selectSticker(sticker);
+      });
+    }
   });
 
   updateStickerDisplay();
@@ -325,23 +347,29 @@ function initializeStickerToolOptions(stickerTool: StickerTool) {
     }
   }
 
-  function addStickerOption(image: HTMLImageElement): HTMLImageElement {
+  function addStickerOption(sticker: Sticker): HTMLImageElement {
+    const image = sticker.image;
     image.classList.add("sticker-option");
     image.title = "Select this sticker";
     image.id = "sticker-option-" + stickers.length;
-    image.addEventListener("click", () => {
-      stickerTool.sticker = image;
-      image.classList.add("selected-sticker");
-      // Deselect other stickers
-      stickerDisplayDiv.querySelectorAll(".sticker-option").forEach((el) => {
-        if (el !== image) {
-          el.classList.remove("selected-sticker");
-        }
-      });
-    });
+    image.addEventListener("click", () => selectSticker(sticker));
     stickerDisplayDiv.appendChild(image);
     return image;
   }
+}
+
+function selectSticker(sticker: Sticker) {
+  stickerTool.sticker = sticker;
+  const stickerDisplayDiv = document.querySelector(
+    ".sticker-display",
+  ) as HTMLDivElement;
+  stickerDisplayDiv.querySelectorAll(".sticker-option").forEach((el) => {
+    if (el === sticker.image) {
+      el.classList.add("selected-sticker");
+    } else {
+      el.classList.remove("selected-sticker");
+    }
+  });
 }
 
 function draw() {
