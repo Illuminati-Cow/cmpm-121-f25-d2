@@ -2,10 +2,10 @@ import {
   Command,
   DrawCommand,
   DrawCursorCommand,
+  DrawPoint,
   DrawStickerCommand,
   MarkerCommand,
   PencilCommand,
-  Point,
 } from "./Command.ts";
 import {
   createToolbarButton,
@@ -89,8 +89,18 @@ eventBus.addEventListener("tool-moved", (baseEvent) => {
     ) as HTMLDivElement;
     contentDiv.innerHTML = "";
     console.log("Updating tool options window for tool:", newTool.name);
-    if (newTool.name === "Sticker") {
-      initializeStickerToolOptions();
+    switch (newTool.name) {
+      case "Sticker":
+        initializeStickerToolOptions();
+        break;
+      case "Marker":
+      case "Pencil":
+        initializeDrawingToolOptions(newTool as DrawingTool);
+        break;
+      default:
+        // No options to show
+        contentDiv.textContent = "No options available for this tool.";
+        break;
     }
   });
 }
@@ -166,8 +176,9 @@ const stickerTool: StickerTool = {
   keyboardShortcut: "KeyS",
   sticker: { image: new Image(), scale: 1.0 },
   scale: 1.0,
+  color: "#000000",
   canLeaveCanvas: true,
-  makeCommand(point: Point): DrawCommand {
+  makeCommand(point: DrawPoint): DrawCommand {
     const stickerCommand = new DrawStickerCommand(point);
     stickerCommand.setImage(stickerTool.sticker.image);
     stickerCommand.setScale(stickerTool.scale * stickerTool.sticker.scale);
@@ -181,7 +192,9 @@ const drawingTools: Array<DrawingTool> = [
     icon: "🖊️",
     tooltip: "Draw with the marker tool",
     keyboardShortcut: "KeyM",
-    makeCommand(point: Point): DrawCommand {
+    scale: 3,
+    color: "#000000",
+    makeCommand(point: DrawPoint): DrawCommand {
       return new MarkerCommand({ points: [point] });
     },
   },
@@ -190,7 +203,9 @@ const drawingTools: Array<DrawingTool> = [
     icon: "✏️",
     tooltip: "Draw with the pencil tool",
     keyboardShortcut: "KeyP",
-    makeCommand(point: Point): DrawCommand {
+    scale: 1,
+    color: "#252525ff",
+    makeCommand(point: DrawPoint): DrawCommand {
       return new PencilCommand({ points: [point] });
     },
   },
@@ -216,6 +231,8 @@ for (const tool of drawingTools) {
     currentCommand = currentTool.makeCommand({
       x: point.x,
       y: point.y,
+      color: currentTool.color,
+      scale: currentTool.scale,
     });
     commands.push(currentCommand!);
     mainCanvas.style.cursor = "none";
@@ -243,7 +260,7 @@ for (const tool of drawingTools) {
     }
     if (currentCommand === null) return;
     const point = screenToCanvasCoords(event.clientX, event.clientY);
-    currentCommand.recordPoint(point);
+    currentCommand.recordPoint(point, currentTool.color, currentTool.scale);
     eventBus.dispatchEvent(new Event("canvas-changed"));
   });
 
@@ -385,6 +402,40 @@ function selectSticker(sticker: Sticker) {
   });
 }
 
+function initializeDrawingToolOptions(tool: DrawingTool) {
+  const contentDiv = document.getElementById(
+    "tool-options-content",
+  ) as HTMLDivElement;
+  contentDiv.classList.add("drawing-tool-options");
+  contentDiv.innerHTML = "";
+  // For simplicity, we will just add a color picker and size slider for drawing tools
+  const colorLabel = document.createElement("label");
+  colorLabel.textContent = "Color: ";
+  const colorInput = document.createElement("input");
+  colorInput.type = "color";
+  colorInput.value = "#000000";
+  colorLabel.appendChild(colorInput);
+  contentDiv.appendChild(colorLabel);
+
+  const sizeLabel = document.createElement("label");
+  sizeLabel.textContent = " Size: ";
+  const sizeInput = document.createElement("input");
+  sizeInput.type = "range";
+  sizeInput.min = "1";
+  sizeInput.max = "50";
+  sizeInput.value = "5";
+  sizeLabel.appendChild(sizeInput);
+  contentDiv.appendChild(sizeLabel);
+
+  // Update tool properties on input change
+  colorInput.addEventListener("input", () => {
+    tool.color = colorInput.value;
+  });
+  sizeInput.addEventListener("input", () => {
+    tool.scale = parseInt(sizeInput.value, 10);
+  });
+}
+
 function draw() {
   ctx.clearRect(0, 0, mainCanvas.width, mainCanvas.height);
   for (const command of commands) {
@@ -412,4 +463,5 @@ function screenToCanvasCoords(x: number, y: number) {
     y: (y - rect.top) * (mainCanvas.height / rect.height) / dpr,
   };
 }
+
 //#endregion

@@ -4,8 +4,12 @@ export interface Point {
   x: number;
   y: number;
 }
+export interface DrawPoint extends Point {
+  color: string;
+  scale: number;
+}
 interface Line {
-  points: Array<Point>;
+  points: Array<DrawPoint>;
 }
 
 export interface Command {
@@ -14,7 +18,7 @@ export interface Command {
   ): void;
 }
 export interface DrawCommand extends Command {
-  recordPoint(point: Point): void;
+  recordPoint(point: Point, color: string, scale: number): void;
 }
 export class DrawStickerCommand implements DrawCommand {
   #point: Point;
@@ -112,6 +116,8 @@ export class DrawCursorCommand implements DrawCommand {
     const command = this.tool.makeCommand({
       x: this.#offscreenCanvas.width / 2,
       y: this.#offscreenCanvas.height / 2,
+      color: this.tool.color,
+      scale: this.tool.scale,
     });
     command.execute(offscreenCtx);
     ctx.drawImage(
@@ -135,22 +141,22 @@ export class MarkerCommand implements DrawCommand {
   execute(ctx: CanvasRenderingContext2D) {
     ctx.save();
     ctx.beginPath();
-    ctx.strokeStyle = "black";
-    ctx.fillStyle = "black";
-    ctx.lineWidth = 4;
-    ctx.lineCap = "round";
-    ctx.lineJoin = "round";
     if (this.#line.points.length === 0) {
       return;
     }
     // Draw a dot if only one point as a one point line is not visible
     if (this.#line.points.length === 1) {
       const point = this.#line.points[0]!;
+      ctx.fillStyle = point.color;
       ctx.arc(point.x, point.y, 2.5, 0, Math.PI * 2);
       ctx.fill();
       ctx.restore();
       return;
     }
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.strokeStyle = this.#line.points[0]!.color;
+    ctx.lineWidth = this.#line.points[0]!.scale;
     ctx.moveTo(this.#line.points[0]!.x, this.#line.points[0]!.y);
     for (const point of this.#line.points) {
       ctx.lineTo(point.x, point.y);
@@ -159,8 +165,8 @@ export class MarkerCommand implements DrawCommand {
     ctx.restore();
   }
 
-  recordPoint(point: Point) {
-    this.#line.points.push(point);
+  recordPoint(point: Point, color: string, scale: number) {
+    this.#line.points.push({ ...point, color, scale });
   }
 }
 export class PencilCommand implements DrawCommand {
@@ -173,21 +179,21 @@ export class PencilCommand implements DrawCommand {
   execute(ctx: CanvasRenderingContext2D) {
     ctx.save();
     ctx.beginPath();
-    ctx.strokeStyle = "gray";
-    ctx.lineWidth = 1;
-    ctx.lineCap = "round";
-    ctx.lineJoin = "round";
     if (this.#line.points.length === 0) {
       return;
     }
     if (this.#line.points.length === 1) {
       const point = this.#line.points[0]!;
       ctx.arc(point.x, point.y, 1, 0, Math.PI * 2);
-      ctx.fillStyle = "gray";
+      ctx.fillStyle = point.color;
       ctx.fill();
       ctx.restore();
       return;
     }
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.strokeStyle = this.#line.points[0]!.color;
+    ctx.lineWidth = this.#line.points[0]!.scale;
     ctx.moveTo(this.#line.points[0]!.x, this.#line.points[0]!.y);
     for (const point of this.#line.points) {
       ctx.lineTo(point.x, point.y);
@@ -196,7 +202,7 @@ export class PencilCommand implements DrawCommand {
     ctx.restore();
   }
 
-  recordPoint(point: Point) {
-    this.#line.points.push(point);
+  recordPoint(point: Point, color: string, scale: number) {
+    this.#line.points.push({ ...point, color, scale });
   }
 }

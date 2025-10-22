@@ -1,4 +1,4 @@
-import { DrawCommand, Point } from "./Command.ts";
+import { DrawCommand, DrawPoint } from "./Command.ts";
 
 export let currentTool: DrawingTool | null = null;
 export interface Tool {
@@ -8,8 +8,10 @@ export interface Tool {
   keyboardShortcut: string;
 }
 export interface DrawingTool extends Tool {
-  makeCommand(point: Point): DrawCommand;
+  makeCommand(point: DrawPoint): DrawCommand;
   canLeaveCanvas?: boolean;
+  scale: number;
+  color: string;
 }
 export type Sticker = {
   image: HTMLImageElement;
@@ -17,7 +19,6 @@ export type Sticker = {
 };
 export interface StickerTool extends DrawingTool {
   sticker: Sticker;
-  scale: number;
 }
 export interface EditingTool extends Tool {
   action: () => void;
