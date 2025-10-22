@@ -35,9 +35,9 @@ const undoneCommands: Array<Command> = [];
 let currentCommand: DrawCommand | null = null;
 let cursorCommand: DrawCursorCommand | null = null;
 const stickers: Array<Sticker> = [
-  { image: await DrawStickerCommand.createImageFromText("😀"), scale: 1 },
-  { image: await DrawStickerCommand.createImageFromText("🚀"), scale: 1 },
-  { image: await DrawStickerCommand.createImageFromText("🌟"), scale: 1 },
+  { image: await createImageFromText("😀"), scale: 1 },
+  { image: await createImageFromText("🚀"), scale: 1 },
+  { image: await createImageFromText("🌟"), scale: 1 },
 ];
 
 eventBus.addEventListener("canvas-changed", draw);
@@ -365,7 +365,7 @@ function initializeStickerToolOptions() {
   addNewStickerButton.addEventListener("click", () => {
     const stickerText = prompt("Enter emoji or text for the new sticker:");
     if (stickerText && stickerText.trim().length > 0) {
-      const imgPromise = DrawStickerCommand.createImageFromText(
+      const imgPromise = createImageFromText(
         stickerText.trim(),
       );
       imgPromise.then((img) => {
@@ -482,6 +482,29 @@ function screenToCanvasCoords(x: number, y: number) {
     x: (x - rect.left) * (mainCanvas.width / rect.width) / dpr,
     y: (y - rect.top) * (mainCanvas.height / rect.height) / dpr,
   };
+}
+
+async function createImageFromText(text: string): Promise<HTMLImageElement> {
+  const offscreen = new OffscreenCanvas(200, 50);
+  const offscreenCtx = offscreen.getContext("2d")!;
+  offscreenCtx.font = "30px Arial";
+  offscreenCtx.fillStyle = "black";
+  offscreenCtx.fillText(text, 10, 35);
+  const img = new Image();
+  const blob = await offscreen.convertToBlob();
+  const url = URL.createObjectURL(blob);
+  img.src = url;
+  return new Promise((resolve, reject) => {
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      resolve(img);
+    };
+    img.onerror = (e) => {
+      URL.revokeObjectURL(url);
+      img.onerror = reject;
+      reject(e);
+    };
+  });
 }
 
 //#endregion

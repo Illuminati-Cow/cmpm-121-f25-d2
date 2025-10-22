@@ -32,43 +32,6 @@ export class DrawStickerCommand implements DrawCommand {
     return this;
   }
 
-  static async createImageFromText(text: string): Promise<HTMLImageElement> {
-    const offscreen = new OffscreenCanvas(200, 50);
-    const offscreenCtx = offscreen.getContext("2d")!;
-    offscreenCtx.font = "30px Arial";
-    offscreenCtx.fillStyle = "black";
-    offscreenCtx.fillText(text, 10, 35);
-    const img = new Image();
-    const blob = await offscreen.convertToBlob();
-    const url = URL.createObjectURL(blob);
-    img.src = url;
-    return new Promise((resolve, reject) => {
-      img.onload = () => {
-        URL.revokeObjectURL(url);
-        resolve(img);
-      };
-      img.onerror = (e) => {
-        URL.revokeObjectURL(url);
-        img.onerror = reject;
-        reject(e);
-      };
-    });
-  }
-
-  static createImageFromUrl(url: string): Promise<HTMLImageElement> {
-    const img = new Image();
-    img.src = url;
-    return new Promise((resolve, reject) => {
-      img.onload = () => {
-        resolve(img);
-      };
-      img.onerror = (e) => {
-        img.onerror = reject;
-        reject(e);
-      };
-    });
-  }
-
   execute(ctx: CanvasRenderingContext2D) {
     ctx.save();
     ctx.translate(this.point.x, this.point.y);
