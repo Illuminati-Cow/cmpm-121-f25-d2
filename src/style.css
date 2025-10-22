@@ -21,13 +21,12 @@ h1 {
 }
 
 #main-canvas {
-  width: 100%;
   max-width: 92svh;
   aspect-ratio: 1;
   display: block;
   background-color: white;
   box-shadow: inset 2px 2px 1px 1px gray, inset -2px -2px 1px 1px gray;
-  align-self: center;
+  justify-self: center;
 }
 
 .main-window-container {
