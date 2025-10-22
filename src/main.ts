@@ -2,10 +2,10 @@ import {
   Command,
   DrawCommand,
   DrawCursorCommand,
-  DrawPoint,
   DrawStickerCommand,
   MarkerCommand,
   PencilCommand,
+  StylizedPoint,
 } from "./Command.ts";
 import {
   createToolbarButton,
@@ -178,10 +178,12 @@ const stickerTool: StickerTool = {
   scale: 1.0,
   color: "#000000",
   canLeaveCanvas: true,
-  makeCommand(point: DrawPoint): DrawCommand {
-    const stickerCommand = new DrawStickerCommand(point);
-    stickerCommand.setImage(stickerTool.sticker.image);
-    stickerCommand.setScale(stickerTool.scale * stickerTool.sticker.scale);
+  makeCommand(point: StylizedPoint): DrawCommand {
+    const stickerCommand = new DrawStickerCommand(
+      point,
+      stickerTool.sticker.image,
+      stickerTool.scale,
+    );
     return stickerCommand;
   },
 };
@@ -194,7 +196,7 @@ const drawingTools: Array<DrawingTool> = [
     keyboardShortcut: "KeyM",
     scale: 3,
     color: "#000000",
-    makeCommand(point: DrawPoint): DrawCommand {
+    makeCommand(point: StylizedPoint): DrawCommand {
       return new MarkerCommand({ points: [point] });
     },
   },
@@ -205,7 +207,7 @@ const drawingTools: Array<DrawingTool> = [
     keyboardShortcut: "KeyP",
     scale: 1,
     color: "#252525ff",
-    makeCommand(point: DrawPoint): DrawCommand {
+    makeCommand(point: StylizedPoint): DrawCommand {
       return new PencilCommand({ points: [point] });
     },
   },

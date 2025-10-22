@@ -4,12 +4,12 @@ export interface Point {
   x: number;
   y: number;
 }
-export interface DrawPoint extends Point {
+export interface StylizedPoint extends Point {
   color: string;
   scale: number;
 }
 interface Line {
-  points: Array<DrawPoint>;
+  points: Array<StylizedPoint>;
 }
 
 export interface Command {
@@ -21,30 +21,14 @@ export interface DrawCommand extends Command {
   recordPoint(point: Point, color: string, scale: number): void;
 }
 export class DrawStickerCommand implements DrawCommand {
-  #point: Point;
-  #image: ImageBitmap | HTMLImageElement;
-  #scale: number = 1.0;
-
   constructor(
-    point: Point,
-    image: ImageBitmap | HTMLImageElement = new Image(32, 32),
-  ) {
-    this.#point = point;
-    this.#image = image;
-  }
+    private point: Point,
+    private image: ImageBitmap | HTMLImageElement = new Image(32, 32),
+    private scale: number = 1.0,
+  ) {}
 
   recordPoint(point: Point): DrawStickerCommand {
-    this.#point = point;
-    return this;
-  }
-
-  setImage(image: ImageBitmap | HTMLImageElement): DrawStickerCommand {
-    this.#image = image;
-    return this;
-  }
-
-  setScale(scale: number): DrawStickerCommand {
-    this.#scale = scale;
+    this.point = point;
     return this;
   }
 
@@ -87,22 +71,16 @@ export class DrawStickerCommand implements DrawCommand {
 
   execute(ctx: CanvasRenderingContext2D) {
     ctx.save();
-    ctx.translate(this.#point.x, this.#point.y);
-    ctx.scale(this.#scale, this.#scale);
-    ctx.drawImage(this.#image, 0, 0);
+    ctx.translate(this.point.x, this.point.y);
+    ctx.scale(this.scale, this.scale);
+    ctx.drawImage(this.image, 0, 0);
     ctx.restore();
   }
 }
 export class DrawCursorCommand implements DrawCommand {
-  #point: Point;
-  #offscreenCanvas: OffscreenCanvas;
-  tool: DrawingTool;
+  #offscreenCanvas: OffscreenCanvas = new OffscreenCanvas(256, 256);
 
-  constructor(point: Point, tool: DrawingTool) {
-    this.#point = point;
-    this.tool = tool;
-    this.#offscreenCanvas = new OffscreenCanvas(256, 256);
-  }
+  constructor(private point: Point, public tool: DrawingTool) {}
 
   execute(ctx: CanvasRenderingContext2D) {
     const offscreenCtx = this.#offscreenCanvas.getContext("2d")!;
@@ -122,36 +100,32 @@ export class DrawCursorCommand implements DrawCommand {
     command.execute(offscreenCtx);
     ctx.drawImage(
       this.#offscreenCanvas,
-      this.#point.x - this.#offscreenCanvas.width / 2,
-      this.#point.y - this.#offscreenCanvas.height / 2,
+      this.point.x - this.#offscreenCanvas.width / 2,
+      this.point.y - this.#offscreenCanvas.height / 2,
     );
   }
 
   recordPoint(point: Point) {
-    this.#point = point;
+    this.point = point;
   }
 }
 export class MarkerCommand implements DrawCommand {
-  #line: Line;
-
-  constructor(line: Line) {
-    this.#line = line;
-  }
+  constructor(private line: Line) {}
 
   execute(ctx: CanvasRenderingContext2D) {
     ctx.save();
     ctx.beginPath();
-    if (this.#line.points.length === 0) {
+    if (this.line.points.length === 0) {
       return;
     }
     // Draw a dot if only one point as a one point line is not visible
-    if (this.#line.points.length === 1) {
-      const point = this.#line.points[0]!;
+    if (this.line.points.length === 1) {
+      const point = this.line.points[0]!;
       ctx.fillStyle = point.color;
       ctx.arc(
         point.x,
         point.y,
-        this.#line.points[0]!.scale / 2,
+        this.line.points[0]!.scale / 2,
         0,
         Math.PI * 2,
       );
@@ -161,10 +135,10 @@ export class MarkerCommand implements DrawCommand {
     }
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
-    ctx.strokeStyle = this.#line.points[0]!.color;
-    ctx.lineWidth = this.#line.points[0]!.scale;
-    ctx.moveTo(this.#line.points[0]!.x, this.#line.points[0]!.y);
-    for (const point of this.#line.points) {
+    ctx.strokeStyle = this.line.points[0]!.color;
+    ctx.lineWidth = this.line.points[0]!.scale;
+    ctx.moveTo(this.line.points[0]!.x, this.line.points[0]!.y);
+    for (const point of this.line.points) {
       ctx.lineTo(point.x, point.y);
     }
     ctx.stroke();
@@ -172,28 +146,24 @@ export class MarkerCommand implements DrawCommand {
   }
 
   recordPoint(point: Point, color: string, scale: number) {
-    this.#line.points.push({ ...point, color, scale });
+    this.line.points.push({ ...point, color, scale });
   }
 }
 export class PencilCommand implements DrawCommand {
-  #line: Line;
-
-  constructor(line: Line) {
-    this.#line = line;
-  }
+  constructor(private line: Line) {}
 
   execute(ctx: CanvasRenderingContext2D) {
     ctx.save();
     ctx.beginPath();
-    if (this.#line.points.length === 0) {
+    if (this.line.points.length === 0) {
       return;
     }
-    if (this.#line.points.length === 1) {
-      const point = this.#line.points[0]!;
+    if (this.line.points.length === 1) {
+      const point = this.line.points[0]!;
       ctx.arc(
         point.x,
         point.y,
-        this.#line.points[0]!.scale / 2,
+        this.line.points[0]!.scale / 2,
         0,
         Math.PI * 2,
       );
@@ -204,10 +174,10 @@ export class PencilCommand implements DrawCommand {
     }
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
-    ctx.strokeStyle = this.#line.points[0]!.color;
-    ctx.lineWidth = this.#line.points[0]!.scale;
-    ctx.moveTo(this.#line.points[0]!.x, this.#line.points[0]!.y);
-    for (const point of this.#line.points) {
+    ctx.strokeStyle = this.line.points[0]!.color;
+    ctx.lineWidth = this.line.points[0]!.scale;
+    ctx.moveTo(this.line.points[0]!.x, this.line.points[0]!.y);
+    for (const point of this.line.points) {
       ctx.lineTo(point.x, point.y);
     }
     ctx.stroke();
@@ -215,6 +185,6 @@ export class PencilCommand implements DrawCommand {
   }
 
   recordPoint(point: Point, color: string, scale: number) {
-    this.#line.points.push({ ...point, color, scale });
+    this.line.points.push({ ...point, color, scale });
   }
 }

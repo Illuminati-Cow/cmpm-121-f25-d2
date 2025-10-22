@@ -1,4 +1,4 @@
-import { DrawCommand, DrawPoint } from "./Command.ts";
+import { DrawCommand, StylizedPoint } from "./Command.ts";
 
 export let currentTool: DrawingTool | null = null;
 export interface Tool {
@@ -8,7 +8,7 @@ export interface Tool {
   keyboardShortcut: string;
 }
 export interface DrawingTool extends Tool {
-  makeCommand(point: DrawPoint): DrawCommand;
+  makeCommand(point: StylizedPoint): DrawCommand;
   canLeaveCanvas?: boolean;
   scale: number;
   color: string;
