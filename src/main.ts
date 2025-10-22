@@ -138,9 +138,22 @@ const editingTools: Array<EditingTool> = [
     tooltip: "Export the canvas as an image",
     keyboardShortcut: "KeyE",
     action: () => {
+      const printCanvas = document.createElement("canvas");
+      printCanvas.width = 1024;
+      printCanvas.height = 1024;
+      const printCtx = printCanvas.getContext("2d")!;
+      printCtx.scale(
+        2,
+        2,
+      );
+      printCtx.fillStyle = "white";
+      printCtx.fillRect(0, 0, printCanvas.width, printCanvas.height);
+      for (const command of commands) {
+        command.execute(printCtx);
+      }
       const link = document.createElement("a");
       link.download = "canvas.png";
-      link.href = mainCanvas.toDataURL("image/png");
+      link.href = printCanvas.toDataURL("image/png");
       link.click();
     },
   },
