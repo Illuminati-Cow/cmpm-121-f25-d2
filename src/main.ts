@@ -299,17 +299,23 @@ function initializeStickerToolOptions() {
   ) as HTMLDivElement;
   contentDiv.classList.add("sticker-tool-options");
   contentDiv.innerHTML = "";
+  // Sticker display area, including buttons to add new stickers
   const stickerDisplayDiv = document.createElement("div");
   stickerDisplayDiv.classList.add("sticker-display");
   contentDiv.appendChild(stickerDisplayDiv);
+
+  // Button to add new sticker via file upload
   const addStickerFromFileButton = document.createElement("button");
   addStickerFromFileButton.textContent = "📂";
   addStickerFromFileButton.title = "Add Sticker From File";
   stickerDisplayDiv.appendChild(addStickerFromFileButton);
+
+  // Button to add new sticker via text/emoji
   const addNewStickerButton = document.createElement("button");
   addNewStickerButton.textContent = "➕";
   addNewStickerButton.title = "Add New Sticker";
   stickerDisplayDiv.appendChild(addNewStickerButton);
+
   addStickerFromFileButton.addEventListener("click", () => {
     const input = document.createElement("input");
     input.type = "file";
@@ -413,7 +419,7 @@ function initializeDrawingToolOptions(tool: DrawingTool) {
   colorLabel.textContent = "Color: ";
   const colorInput = document.createElement("input");
   colorInput.type = "color";
-  colorInput.value = "#000000";
+  colorInput.value = tool.color;
   colorLabel.appendChild(colorInput);
   contentDiv.appendChild(colorLabel);
 
@@ -423,16 +429,22 @@ function initializeDrawingToolOptions(tool: DrawingTool) {
   sizeInput.type = "range";
   sizeInput.min = "1";
   sizeInput.max = "50";
-  sizeInput.value = "5";
+  sizeInput.value = tool.scale.toString();
+  sizeInput.style.width = "100%";
   sizeLabel.appendChild(sizeInput);
   contentDiv.appendChild(sizeLabel);
 
   // Update tool properties on input change
-  colorInput.addEventListener("input", () => {
+  colorInput.addEventListener("input", (event) => {
     tool.color = colorInput.value;
+    event.stopPropagation();
   });
-  sizeInput.addEventListener("input", () => {
+  sizeInput.addEventListener("input", (event) => {
     tool.scale = parseInt(sizeInput.value, 10);
+    event.stopPropagation();
+  });
+  sizeInput.addEventListener("mousedown", (event) => {
+    event.stopPropagation();
   });
 }
 
