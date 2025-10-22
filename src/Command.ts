@@ -137,7 +137,7 @@ export class MarkerCommand implements DrawCommand {
     ctx.beginPath();
     ctx.strokeStyle = "black";
     ctx.fillStyle = "black";
-    ctx.lineWidth = 5;
+    ctx.lineWidth = 4;
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
     if (this.#line.points.length === 0) {
@@ -174,7 +174,7 @@ export class PencilCommand implements DrawCommand {
     ctx.save();
     ctx.beginPath();
     ctx.strokeStyle = "gray";
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 1;
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
     if (this.#line.points.length === 0) {
