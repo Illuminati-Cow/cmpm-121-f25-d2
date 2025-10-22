@@ -355,6 +355,10 @@ function initializeStickerToolOptions() {
       }
     });
   });
+  addStickerFromFileButton.addEventListener(
+    "mousedown",
+    (e) => e.stopPropagation(),
+  );
 
   addNewStickerButton.addEventListener("click", () => {
     const stickerText = prompt("Enter emoji or text for the new sticker:");
@@ -370,6 +374,7 @@ function initializeStickerToolOptions() {
       });
     }
   });
+  addNewStickerButton.addEventListener("mousedown", (e) => e.stopPropagation());
 
   updateStickerDisplay();
 
@@ -389,6 +394,7 @@ function initializeStickerToolOptions() {
     image.title = "Select this sticker";
     image.id = "sticker-option-" + stickers.length;
     image.addEventListener("click", () => selectSticker(sticker));
+    image.addEventListener("mousedown", (e) => e.stopPropagation());
     stickerDisplayDiv.appendChild(image);
     return image;
   }
