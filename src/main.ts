@@ -485,11 +485,27 @@ function screenToCanvasCoords(x: number, y: number) {
 }
 
 async function createImageFromText(text: string): Promise<HTMLImageElement> {
-  const offscreen = new OffscreenCanvas(200, 50);
+  // Create a temporary OffscreenCanvas to measure text dimensions
+  const tempOffscreen = new OffscreenCanvas(1, 1);
+  const tempCtx = tempOffscreen.getContext("2d")!;
+  tempCtx.font = "30px Arial";
+  const metrics = tempCtx.measureText(text);
+  const paddingTop = 5;
+  const paddingBottom = 5;
+  const paddingWidth = 20;
+  const width = Math.ceil(metrics.width + paddingWidth);
+  const height = Math.ceil(
+    metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent +
+      paddingTop + paddingBottom,
+  );
+  const baselineY = metrics.actualBoundingBoxAscent + paddingTop;
+
+  const offscreen = new OffscreenCanvas(width, height);
   const offscreenCtx = offscreen.getContext("2d")!;
   offscreenCtx.font = "30px Arial";
   offscreenCtx.fillStyle = "black";
-  offscreenCtx.fillText(text, 10, 35);
+  offscreenCtx.fillText(text, 10, baselineY);
+
   const img = new Image();
   const blob = await offscreen.convertToBlob();
   const url = URL.createObjectURL(blob);
