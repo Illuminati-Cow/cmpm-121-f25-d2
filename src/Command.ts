@@ -148,7 +148,13 @@ export class MarkerCommand implements DrawCommand {
     if (this.#line.points.length === 1) {
       const point = this.#line.points[0]!;
       ctx.fillStyle = point.color;
-      ctx.arc(point.x, point.y, 2.5, 0, Math.PI * 2);
+      ctx.arc(
+        point.x,
+        point.y,
+        this.#line.points[0]!.scale / 2,
+        0,
+        Math.PI * 2,
+      );
       ctx.fill();
       ctx.restore();
       return;
@@ -184,7 +190,13 @@ export class PencilCommand implements DrawCommand {
     }
     if (this.#line.points.length === 1) {
       const point = this.#line.points[0]!;
-      ctx.arc(point.x, point.y, 1, 0, Math.PI * 2);
+      ctx.arc(
+        point.x,
+        point.y,
+        this.#line.points[0]!.scale / 2,
+        0,
+        Math.PI * 2,
+      );
       ctx.fillStyle = point.color;
       ctx.fill();
       ctx.restore();
