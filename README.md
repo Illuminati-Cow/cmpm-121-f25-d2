@@ -1,3 +1,3 @@
-# CMPM 121 D2 Project
+# Super Doodle
 
-This is the starting point for your CMPM 121 D2 project. Students should make sure to remove _this_ content from their README.md file and replace it with their own project documentation.
+This is a fun drawing program for making quick sketches. It features a few different customizable drawing tools and a sticker tool that allows you to create and upload your own stickers.
