@@ -182,7 +182,7 @@ const stickerTool: StickerTool = {
     const stickerCommand = new DrawStickerCommand(
       point,
       stickerTool.sticker.image,
-      stickerTool.scale,
+      stickerTool.scale * stickerTool.sticker.scale,
     );
     return stickerCommand;
   },
@@ -398,6 +398,15 @@ function initializeStickerToolOptions() {
     image.addEventListener("click", () => selectSticker(sticker));
     image.addEventListener("mousedown", (e) => e.stopPropagation());
     stickerDisplayDiv.appendChild(image);
+
+    const deleteStickerButton = document.createElement("button");
+    deleteStickerButton.innerText = "❌";
+    deleteStickerButton.addEventListener("click", () => {
+      deleteStickerButton.remove();
+      image.remove();
+      stickers.splice(stickers.findIndex((s) => s === sticker));
+    });
+    image.appendChild(deleteStickerButton);
     return image;
   }
 }
@@ -438,6 +447,7 @@ function initializeDrawingToolOptions(tool: DrawingTool) {
   sizeInput.min = "1";
   sizeInput.max = "50";
   sizeInput.value = tool.scale.toString();
+  sizeInput.title = tool.scale.toString();
   sizeInput.style.width = "100%";
   sizeLabel.appendChild(sizeInput);
   contentDiv.appendChild(sizeLabel);
@@ -449,6 +459,7 @@ function initializeDrawingToolOptions(tool: DrawingTool) {
   });
   sizeInput.addEventListener("input", (event) => {
     tool.scale = parseInt(sizeInput.value, 10);
+    sizeInput.title = tool.scale.toString();
     event.stopPropagation();
   });
   sizeInput.addEventListener("mousedown", (event) => {

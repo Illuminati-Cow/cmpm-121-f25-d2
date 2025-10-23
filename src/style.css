@@ -142,6 +142,18 @@ h1 {
   -o-border-radius: 5px;
 }
 
+.sticker-option button {
+  position: relative;
+  width: 10px;
+  height: 10px;
+  top: 5px;
+  left: 5px;
+  background-color: transparent;
+  border: none;
+  padding: 0;
+  margin: 0;
+}
+
 .sticker-display button:hover {
   box-shadow: 2px 2px 6px rgba(0, 0, 0, 0.4);
   cursor: pointer;
