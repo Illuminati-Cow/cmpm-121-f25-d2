@@ -384,29 +384,35 @@ function initializeStickerToolOptions() {
     // Clear existing stickers except the add button
     stickerDisplayDiv
       .querySelectorAll(".sticker-option")
-      .forEach((el) => el.remove());
+      .forEach((el) => el.parentElement!.remove());
     for (const sticker of stickers) {
       addStickerOption(sticker);
     }
   }
 
   function addStickerOption(sticker: Sticker): HTMLImageElement {
+    const containerDiv = document.createElement("div");
+    stickerDisplayDiv.appendChild(containerDiv);
+
     const image = sticker.image;
     image.classList.add("sticker-option");
     image.title = "Select this sticker";
     image.id = "sticker-option-" + stickers.length;
     image.addEventListener("click", () => selectSticker(sticker));
     image.addEventListener("mousedown", (e) => e.stopPropagation());
-    stickerDisplayDiv.appendChild(image);
+
+    containerDiv.appendChild(image);
 
     const deleteStickerButton = document.createElement("button");
     deleteStickerButton.innerText = "❌";
-    deleteStickerButton.addEventListener("click", () => {
-      deleteStickerButton.remove();
-      image.remove();
-      stickers.splice(stickers.findIndex((s) => s === sticker));
+    deleteStickerButton.title = "Delete this sticker";
+    deleteStickerButton.addEventListener("click", (event) => {
+      containerDiv.remove();
+      stickers.splice(stickers.findIndex((s) => s === sticker), 1);
+      updateStickerDisplay();
+      event.stopPropagation();
     });
-    image.appendChild(deleteStickerButton);
+    containerDiv.appendChild(deleteStickerButton);
     return image;
   }
 }
